@@ -11,6 +11,7 @@ export default function KanbanBoard({ columns, jobsByStatus, employees, onEdit, 
           employees={employees}
           onEdit={onEdit}
           onDelete={onDelete}
+          onStatusChange={onMoveJob}
           onDrop={onMoveJob}
         />
       ))}

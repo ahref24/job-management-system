@@ -1,28 +1,28 @@
-import { useEffect, useState } from "react";
+import { useRef } from "react";
+import { useFocusTrap } from "../hooks/useFocusTrap";
 
 export default function ConfirmDialog({ title, message, confirmLabel = "Delete", onConfirm, onCancel }) {
-  const [confirming, setConfirming] = useState(false);
+  const modalRef = useRef(null);
+  const cancelRef = useRef(null);
 
-  useEffect(() => {
-    const handleKeyDown = (event) => {
-      if (event.key === "Escape") onCancel();
-    };
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [onCancel]);
-
-  const handleConfirm = () => {
-    setConfirming(true);
-    onConfirm();
-  };
+  useFocusTrap(modalRef, { onEscape: onCancel, initialFocusRef: cancelRef });
 
   return (
-    <div className="modal-backdrop" role="presentation" onMouseDown={onCancel}>
+    <div
+      className="modal-backdrop"
+      role="presentation"
+      onMouseDown={(event) => {
+        if (event.target === event.currentTarget) onCancel();
+      }}
+    >
       <div
         className="modal modal-sm"
         role="alertdialog"
         aria-modal="true"
         aria-labelledby="confirm-title"
+        aria-describedby="confirm-message"
+        ref={modalRef}
+        tabIndex={-1}
         onMouseDown={(event) => event.stopPropagation()}
       >
         <header className="modal-header">
@@ -36,14 +36,16 @@ export default function ConfirmDialog({ title, message, confirmLabel = "Delete",
           <h2 id="confirm-title">{title}</h2>
         </header>
 
-        <p className="confirm-message">{message}</p>
+        <p className="confirm-message" id="confirm-message">
+          {message}
+        </p>
 
         <footer className="modal-actions">
-          <button type="button" className="btn btn-ghost" onClick={onCancel}>
+          <button type="button" className="btn btn-ghost" onClick={onCancel} ref={cancelRef}>
             Cancel
           </button>
-          <button type="button" className="btn btn-danger" onClick={handleConfirm} disabled={confirming}>
-            {confirming ? "Deleting…" : confirmLabel}
+          <button type="button" className="btn btn-danger" onClick={onConfirm}>
+            {confirmLabel}
           </button>
         </footer>
       </div>

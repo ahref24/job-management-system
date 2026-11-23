@@ -400,7 +400,8 @@ body {
   transition: opacity 0.15s ease;
 }
 
-.job-card:hover .job-actions {
+.job-card:hover .job-actions,
+.job-card:focus-within .job-actions {
   opacity: 1;
 }
 
@@ -545,6 +546,41 @@ body {
   -webkit-box-orient: vertical;
 }
 
+.card-status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.card-status label {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-faint);
+}
+
+.card-status select {
+  flex: 1;
+  min-width: 0;
+  padding: 6px 8px;
+  border: 1px solid var(--surface-border);
+  border-radius: 8px;
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted);
+  background: var(--surface-muted);
+  cursor: pointer;
+}
+
+.card-status select:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px var(--primary-soft);
+}
+
 /* ===== Modal ===== */
 .modal-backdrop {
   position: fixed;
@@ -566,6 +602,10 @@ body {
   max-width: 560px;
   box-shadow: var(--shadow-lg);
   animation: modal-in 0.2s ease;
+}
+
+.modal:focus {
+  outline: none;
 }
 
 .modal-sm {
@@ -618,6 +658,12 @@ body {
 }
 
 .form-group label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.form-label {
   font-size: 13px;
   font-weight: 600;
   color: var(--text);
@@ -794,5 +840,71 @@ body {
   *::after {
     animation-duration: 0.01ms !important;
     transition-duration: 0.01ms !important;
+  }
+}
+
+/* ===== Google Sheets sync bar ===== */
+.sync-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+  padding: 8px 12px;
+  border: 1px solid var(--surface-border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  box-shadow: var(--shadow-sm);
+  font-size: 12.5px;
+  color: var(--text-muted);
+}
+
+.sync-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #22c55e;
+  flex-shrink: 0;
+}
+
+.sync-saving .sync-dot {
+  background: #f59e0b;
+  animation: sync-pulse 1.2s ease-in-out infinite;
+}
+
+.sync-error {
+  border-color: #fecaca;
+  background: #fef2f2;
+  color: #b91c1c;
+}
+
+.sync-error .sync-dot {
+  background: var(--danger);
+}
+
+.sync-pending {
+  color: var(--text-faint);
+}
+
+.sync-action {
+  padding: 4px 8px;
+  font-size: 12px;
+  margin-left: auto;
+}
+
+@keyframes sync-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.35;
+  }
+}
+
+/* Touch devices have no hover, so keep card actions visible. */
+@media (hover: none) {
+  .job-actions {
+    opacity: 1;
   }
 }

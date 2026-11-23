@@ -1,17 +1,13 @@
 import { useMemo, useState } from "react";
-import { useLocalStorage } from "./hooks/useLocalStorage";
-import { STATUS, DEFAULT_EMPLOYEES } from "./constants";
-import { SEED_JOBS } from "./utils/helpers";
+import { STATUS } from "./constants";
+import { groupJobsByStatus } from "./utils/sort";
+import { useJobs } from "./hooks/useJobs";
 import KanbanBoard from "./components/KanbanBoard";
 import JobForm from "./components/JobForm";
 import ConfirmDialog from "./components/ConfirmDialog";
 import FilterBar from "./components/FilterBar";
 import StatCards from "./components/StatCards";
-
-const STORAGE_KEYS = {
-  jobs: "jms.jobs.v1",
-  employees: "jms.employees.v1",
-};
+import SyncStatus from "./components/SyncStatus";
 
 const COLUMNS = [
   { status: STATUS.TODO, title: "To Do", color: "#6366f1" },
@@ -20,8 +16,22 @@ const COLUMNS = [
 ];
 
 export default function App() {
-  const [jobs, setJobs] = useLocalStorage(STORAGE_KEYS.jobs, SEED_JOBS);
-  const [employees, setEmployees] = useLocalStorage(STORAGE_KEYS.employees, DEFAULT_EMPLOYEES);
+  const {
+    jobs,
+    employees,
+    mode,
+    syncState,
+    syncMessage,
+    lastSyncedAt,
+    pendingCount,
+    needsImport,
+    importCandidateCount,
+    saveJob,
+    deleteJob,
+    moveJob,
+    importLocal,
+    retry,
+  } = useJobs();
 
   const [statusFilter, setStatusFilter] = useState("all");
   const [employeeFilter, setEmployeeFilter] = useState("all");
@@ -31,13 +41,18 @@ export default function App() {
   const [editingJob, setEditingJob] = useState(null);
   const [deletingJob, setDeletingJob] = useState(null);
 
+  const activeEmployees = useMemo(
+    () => employees.filter((employee) => employee.active !== false),
+    [employees]
+  );
+
   const visibleJobs = useMemo(() => {
     const query = searchQuery.trim().toLowerCase();
     return jobs.filter((job) => {
       if (statusFilter !== "all" && job.status !== statusFilter) return false;
       if (employeeFilter !== "all" && job.employeeId !== employeeFilter) return false;
       if (!query) return true;
-      const employee = employees.find((e) => e.id === job.employeeId);
+      const employee = employees.find((item) => item.id === job.employeeId);
       const haystack = [job.title, job.description, job.notes, employee?.name]
         .filter(Boolean)
         .join(" ")
@@ -46,28 +61,7 @@ export default function App() {
     });
   }, [jobs, employees, statusFilter, employeeFilter, searchQuery]);
 
-  const jobsByStatus = useMemo(() => {
-    const grouped = {
-      [STATUS.TODO]: [],
-      [STATUS.IN_PROGRESS]: [],
-      [STATUS.COMPLETE]: [],
-    };
-    const now = new Date().toISOString();
-    const recentFirst = [...visibleJobs].sort((a, b) => {
-      const aDone = a.status === STATUS.COMPLETE;
-      const bDone = b.status === STATUS.COMPLETE;
-      if (aDone || bDone) {
-        return new Date(b.updatedAt || b.createdAt || now) - new Date(a.updatedAt || a.createdAt || now);
-      }
-      const ad = a.dueDate ? new Date(a.dueDate + "T00:00:00").getTime() : Infinity;
-      const bd = b.dueDate ? new Date(b.dueDate + "T00:00:00").getTime() : Infinity;
-      return ad - bd;
-    });
-    recentFirst.forEach((job) => {
-      if (grouped[job.status]) grouped[job.status].push(job);
-    });
-    return grouped;
-  }, [visibleJobs]);
+  const jobsByStatus = useMemo(() => groupJobsByStatus(visibleJobs), [visibleJobs]);
 
   const hasActiveFilters =
     statusFilter !== "all" || employeeFilter !== "all" || searchQuery.trim() !== "";
@@ -82,28 +76,10 @@ export default function App() {
     setFormOpen(true);
   };
 
-  const handleSave = (savedJob) => {
-    setJobs((prev) => {
-      const exists = prev.some((job) => job.id === savedJob.id);
-      return exists
-        ? prev.map((job) => (job.id === savedJob.id ? savedJob : job))
-        : [savedJob, ...prev];
-    });
-  };
-
   const handleDelete = () => {
     if (!deletingJob) return;
-    setJobs((prev) => prev.filter((job) => job.id !== deletingJob.id));
+    deleteJob(deletingJob);
     setDeletingJob(null);
-  };
-
-  const handleMoveJob = (jobId, newStatus) => {
-    setJobs((prev) =>
-      prev.map((job) => {
-        if (job.id !== jobId || job.status === newStatus) return job;
-        return { ...job, status: newStatus, updatedAt: new Date().toISOString() };
-      })
-    );
   };
 
   return (
@@ -135,6 +111,17 @@ export default function App() {
       </header>
 
       <div className="app-body">
+        <SyncStatus
+          mode={mode}
+          state={syncState}
+          message={syncMessage}
+          lastSyncedAt={lastSyncedAt}
+          pendingCount={pendingCount}
+          needsImport={needsImport}
+          importCount={importCandidateCount}
+          onRetry={retry}
+          onImport={importLocal}
+        />
         <StatCards jobs={jobs} />
         <FilterBar
           statusFilter={statusFilter}
@@ -148,7 +135,7 @@ export default function App() {
             setEmployeeFilter("all");
             setSearchQuery("");
           }}
-          employees={employees}
+          employees={activeEmployees}
           hasActiveFilters={hasActiveFilters}
         />
         <KanbanBoard
@@ -157,15 +144,15 @@ export default function App() {
           employees={employees}
           onEdit={openEditForm}
           onDelete={setDeletingJob}
-          onMoveJob={handleMoveJob}
+          onMoveJob={moveJob}
         />
       </div>
 
       {formOpen && (
         <JobForm
           job={editingJob}
-          employees={employees}
-          onSave={handleSave}
+          employees={activeEmployees}
+          onSave={saveJob}
           onClose={() => {
             setFormOpen(false);
             setEditingJob(null);
@@ -184,8 +171,10 @@ export default function App() {
 
       <footer className="app-footer">
         <p>
-          Showing {visibleJobs.length} of {jobs.length} job{jobs.length === 1 ? "" : "s"} · Dragging a card moves it to
-          a new status · Data is stored locally in your browser.
+          Showing {visibleJobs.length} of {jobs.length} job{jobs.length === 1 ? "" : "s"} ·{" "}
+          {mode === "sheets"
+            ? "Data syncs to Google Sheets"
+            : "Data is stored locally in your browser"}
         </p>
       </footer>
     </div>

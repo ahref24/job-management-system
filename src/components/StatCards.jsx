@@ -1,10 +1,10 @@
-import { STATUS_OPTIONS } from "../constants";
+import { STATUS } from "../constants";
 import { isOverdue } from "../utils/helpers";
 
 export default function StatCards({ jobs }) {
-  const todo = jobs.filter((job) => job.status === STATUS_OPTIONS[0].value).length;
-  const inProgress = jobs.filter((job) => job.status === STATUS_OPTIONS[1].value).length;
-  const complete = jobs.filter((job) => job.status === STATUS_OPTIONS[2].value).length;
+  const todo = jobs.filter((job) => job.status === STATUS.TODO).length;
+  const inProgress = jobs.filter((job) => job.status === STATUS.IN_PROGRESS).length;
+  const complete = jobs.filter((job) => job.status === STATUS.COMPLETE).length;
   const overdue = jobs.filter((job) => isOverdue(job)).length;
 
   const stats = [

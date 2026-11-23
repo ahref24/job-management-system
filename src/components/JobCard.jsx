@@ -1,8 +1,9 @@
-import { PRIORITY_OPTIONS } from "../constants";
-import { formatDateDisplay, isOverdue, daysRemaining } from "../utils/helpers";
+import { useState } from "react";
+import { PRIORITY_OPTIONS, STATUS_OPTIONS } from "../constants";
+import { daysRemaining, formatDateDisplay, isOverdue } from "../utils/helpers";
 
 function PriorityBadge({ priority }) {
-  const option = PRIORITY_OPTIONS.find((p) => p.value === priority) || PRIORITY_OPTIONS[1];
+  const option = PRIORITY_OPTIONS.find((item) => item.value === priority) || PRIORITY_OPTIONS[1];
   return (
     <span className="priority-badge" style={{ "--priority-color": option.color }}>
       {option.label}
@@ -15,15 +16,20 @@ function DueDate({ job }) {
   const remaining = daysRemaining(job);
 
   let hint = "";
-  if (!overdue && remaining !== null) {
-    if (remaining === 0) hint = "Due today";
-    else if (remaining === 1) hint = "1 day left";
-    else if (remaining < 0) hint = `Overdue by ${Math.abs(remaining)}d`;
-    else hint = `${remaining} days left`;
+  if (remaining !== null) {
+    if (overdue) {
+      hint = remaining < 0 ? `Overdue by ${Math.abs(remaining)}d` : "Overdue";
+    } else if (remaining === 0) {
+      hint = "Due today";
+    } else if (remaining === 1) {
+      hint = "1 day left";
+    } else if (remaining > 1) {
+      hint = `${remaining} days left`;
+    }
   }
 
   return (
-    <span className={`due-date${overdue ? " overdue" : ""}`} title={hint}>
+    <span className={`due-date${overdue ? " overdue" : ""}`} title={hint || undefined}>
       <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
         <rect x="3" y="5" width="18" height="16" rx="2" />
         <line x1="8" y1="3" x2="8" y2="7" />
@@ -53,13 +59,30 @@ function EmployeeBadge({ employee }) {
   );
 }
 
-export default function JobCard({ job, employee, onEdit, onDelete, onDragStart, onDragEnd }) {
+export default function JobCard({
+  job,
+  employee,
+  onEdit,
+  onDelete,
+  onStatusChange,
+  onDragStart,
+  onDragEnd,
+}) {
+  const [dragging, setDragging] = useState(false);
+  const overdue = isOverdue(job);
+
   return (
     <article
-      className={`job-card${isOverdue(job) ? " is-overdue" : ""}`}
+      className={`job-card${overdue ? " is-overdue" : ""}${dragging ? " dragging" : ""}`}
       draggable
-      onDragStart={(event) => onDragStart(event, job)}
-      onDragEnd={onDragEnd}
+      onDragStart={(event) => {
+        setDragging(true);
+        onDragStart(event, job);
+      }}
+      onDragEnd={() => {
+        setDragging(false);
+        onDragEnd?.();
+      }}
     >
       <header className="job-card-header">
         <PriorityBadge priority={job.priority} />
@@ -67,7 +90,7 @@ export default function JobCard({ job, employee, onEdit, onDelete, onDragStart, 
           <button
             type="button"
             className="icon-btn"
-            aria-label="Edit job"
+            aria-label={`Edit ${job.title}`}
             title="Edit job"
             onClick={() => onEdit(job)}
           >
@@ -79,7 +102,7 @@ export default function JobCard({ job, employee, onEdit, onDelete, onDragStart, 
           <button
             type="button"
             className="icon-btn danger"
-            aria-label="Delete job"
+            aria-label={`Delete ${job.title}`}
             title="Delete job"
             onClick={() => onDelete(job)}
           >
@@ -104,6 +127,21 @@ export default function JobCard({ job, employee, onEdit, onDelete, onDragStart, 
         <EmployeeBadge employee={employee} />
         <DueDate job={job} />
       </footer>
+
+      <div className="card-status">
+        <label htmlFor={`status-${job.id}`}>Move to</label>
+        <select
+          id={`status-${job.id}`}
+          value={job.status}
+          onChange={(event) => onStatusChange?.(job.id, event.target.value)}
+        >
+          {STATUS_OPTIONS.map((option) => (
+            <option key={option.value} value={option.value}>
+              {option.label}
+            </option>
+          ))}
+        </select>
+      </div>
 
       {job.notes && (
         <div className="job-notes">

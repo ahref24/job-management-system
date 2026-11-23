@@ -1,6 +1,7 @@
-import { useEffect, useState } from "react";
-import { STATUS_OPTIONS, PRIORITY_OPTIONS } from "../constants";
-import { uid } from "../utils/helpers";
+import { useRef, useState } from "react";
+import { PRIORITY_OPTIONS, STATUS_OPTIONS } from "../constants";
+import { normalizeDueDate, uid } from "../utils/helpers";
+import { useFocusTrap } from "../hooks/useFocusTrap";
 
 const EMPTY_FORM = {
   title: "",
@@ -12,6 +13,8 @@ const EMPTY_FORM = {
   notes: "",
 };
 
+const PRIORITY_KEYS = ["ArrowRight", "ArrowDown", "ArrowLeft", "ArrowUp"];
+
 export default function JobForm({ job, employees, onSave, onClose }) {
   const [form, setForm] = useState(() =>
     job
@@ -19,7 +22,7 @@ export default function JobForm({ job, employees, onSave, onClose }) {
           title: job.title,
           description: job.description || "",
           employeeId: job.employeeId || "",
-          dueDate: job.dueDate || "",
+          dueDate: normalizeDueDate(job.dueDate),
           priority: job.priority || "medium",
           status: job.status || "todo",
           notes: job.notes || "",
@@ -28,15 +31,10 @@ export default function JobForm({ job, employees, onSave, onClose }) {
   );
 
   const [errors, setErrors] = useState({});
-  const [submitting, setSubmitting] = useState(false);
+  const modalRef = useRef(null);
+  const titleRef = useRef(null);
 
-  useEffect(() => {
-    const handleKeyDown = (event) => {
-      if (event.key === "Escape") onClose();
-    };
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [onClose]);
+  useFocusTrap(modalRef, { onEscape: onClose, initialFocusRef: titleRef });
 
   const handleChange = (event) => {
     const { name, value } = event.target;
@@ -46,31 +44,40 @@ export default function JobForm({ job, employees, onSave, onClose }) {
     }
   };
 
+  const handlePriorityKeyDown = (event) => {
+    if (!PRIORITY_KEYS.includes(event.key)) return;
+    event.preventDefault();
+    const currentIndex = PRIORITY_OPTIONS.findIndex((option) => option.value === form.priority);
+    const delta = event.key === "ArrowRight" || event.key === "ArrowDown" ? 1 : -1;
+    const nextIndex = (currentIndex + delta + PRIORITY_OPTIONS.length) % PRIORITY_OPTIONS.length;
+    setForm((prev) => ({ ...prev, priority: PRIORITY_OPTIONS[nextIndex].value }));
+    const buttons = event.currentTarget.querySelectorAll("button[role='radio']");
+    if (buttons[nextIndex]) buttons[nextIndex].focus();
+  };
+
   const validate = () => {
     const nextErrors = {};
-    if (!form.title.trim()) {
+    const title = form.title.trim();
+    if (!title) {
       nextErrors.title = "Job title is required.";
-    } else if (form.title.trim().length < 3) {
+    } else if (title.length < 3) {
       nextErrors.title = "Job title must be at least 3 characters.";
-    } else if (form.title.trim().length > 120) {
+    } else if (title.length > 120) {
       nextErrors.title = "Job title must be 120 characters or fewer.";
     }
-    if (form.description && form.description.trim().length > 500) {
+    if (form.description.trim().length > 500) {
       nextErrors.description = "Description must be 500 characters or fewer.";
     }
     if (!form.employeeId) {
       nextErrors.employeeId = "Please assign the job to an employee.";
     }
-    if (form.dueDate) {
-      const date = new Date(form.dueDate + "T00:00:00");
-      if (Number.isNaN(date.getTime())) {
-        nextErrors.dueDate = "Please provide a valid due date.";
-      }
+    if (form.dueDate.trim() && !normalizeDueDate(form.dueDate)) {
+      nextErrors.dueDate = "Please provide a valid due date.";
     }
     if (!form.status) {
       nextErrors.status = "Please choose a status.";
     }
-    if (form.notes && form.notes.trim().length > 1000) {
+    if (form.notes.trim().length > 1000) {
       nextErrors.notes = "Notes must be 1000 characters or fewer.";
     }
     return nextErrors;
@@ -82,7 +89,6 @@ export default function JobForm({ job, employees, onSave, onClose }) {
     setErrors(nextErrors);
     if (Object.keys(nextErrors).length > 0) return;
 
-    setSubmitting(true);
     const now = new Date().toISOString();
     onSave({
       ...(job || {}),
@@ -90,24 +96,31 @@ export default function JobForm({ job, employees, onSave, onClose }) {
       title: form.title.trim(),
       description: form.description.trim(),
       employeeId: form.employeeId,
-      dueDate: form.dueDate,
+      dueDate: normalizeDueDate(form.dueDate),
       priority: form.priority,
       status: form.status,
       notes: form.notes.trim(),
       createdAt: job ? job.createdAt : now,
       updatedAt: now,
     });
-    setSubmitting(false);
     onClose();
   };
 
   return (
-    <div className="modal-backdrop" role="presentation" onMouseDown={onClose}>
+    <div
+      className="modal-backdrop"
+      role="presentation"
+      onMouseDown={(event) => {
+        if (event.target === event.currentTarget) onClose();
+      }}
+    >
       <div
         className="modal"
         role="dialog"
         aria-modal="true"
         aria-labelledby="job-form-title"
+        ref={modalRef}
+        tabIndex={-1}
         onMouseDown={(event) => event.stopPropagation()}
       >
         <header className="modal-header">
@@ -127,12 +140,20 @@ export default function JobForm({ job, employees, onSave, onClose }) {
               id="title"
               name="title"
               type="text"
+              ref={titleRef}
               value={form.title}
               onChange={handleChange}
               placeholder="e.g. Redesign pricing page"
               className={errors.title ? "invalid" : ""}
+              maxLength={120}
+              aria-invalid={Boolean(errors.title)}
+              aria-describedby={errors.title ? "title-error" : undefined}
             />
-            {errors.title && <span className="field-error">{errors.title}</span>}
+            {errors.title && (
+              <span className="field-error" id="title-error">
+                {errors.title}
+              </span>
+            )}
           </div>
 
           <div className="form-group">
@@ -145,8 +166,15 @@ export default function JobForm({ job, employees, onSave, onClose }) {
               rows="3"
               placeholder="What needs to be done?"
               className={errors.description ? "invalid" : ""}
+              maxLength={500}
+              aria-invalid={Boolean(errors.description)}
+              aria-describedby={errors.description ? "description-error" : undefined}
             />
-            {errors.description && <span className="field-error">{errors.description}</span>}
+            {errors.description && (
+              <span className="field-error" id="description-error">
+                {errors.description}
+              </span>
+            )}
           </div>
 
           <div className="form-row">
@@ -158,6 +186,8 @@ export default function JobForm({ job, employees, onSave, onClose }) {
                 value={form.employeeId}
                 onChange={handleChange}
                 className={errors.employeeId ? "invalid" : ""}
+                aria-invalid={Boolean(errors.employeeId)}
+                aria-describedby={errors.employeeId ? "employeeId-error" : undefined}
               >
                 <option value="">Select employee…</option>
                 {employees.map((employee) => (
@@ -166,7 +196,11 @@ export default function JobForm({ job, employees, onSave, onClose }) {
                   </option>
                 ))}
               </select>
-              {errors.employeeId && <span className="field-error">{errors.employeeId}</span>}
+              {errors.employeeId && (
+                <span className="field-error" id="employeeId-error">
+                  {errors.employeeId}
+                </span>
+              )}
             </div>
 
             <div className="form-group">
@@ -178,21 +212,35 @@ export default function JobForm({ job, employees, onSave, onClose }) {
                 value={form.dueDate}
                 onChange={handleChange}
                 className={errors.dueDate ? "invalid" : ""}
+                aria-invalid={Boolean(errors.dueDate)}
+                aria-describedby={errors.dueDate ? "dueDate-error" : undefined}
               />
-              {errors.dueDate && <span className="field-error">{errors.dueDate}</span>}
+              {errors.dueDate && (
+                <span className="field-error" id="dueDate-error">
+                  {errors.dueDate}
+                </span>
+              )}
             </div>
           </div>
 
           <div className="form-row">
             <div className="form-group">
-              <label htmlFor="priority">Priority</label>
-              <div className="pill-select" role="radiogroup" aria-label="Priority">
+              <span className="form-label" id="priority-label">
+                Priority
+              </span>
+              <div
+                className="pill-select"
+                role="radiogroup"
+                aria-labelledby="priority-label"
+                onKeyDown={handlePriorityKeyDown}
+              >
                 {PRIORITY_OPTIONS.map((option) => (
                   <button
                     key={option.value}
                     type="button"
                     role="radio"
                     aria-checked={form.priority === option.value}
+                    tabIndex={form.priority === option.value ? 0 : -1}
                     className={`pill ${form.priority === option.value ? "selected" : ""}`}
                     style={{ "--pill-color": option.color }}
                     onClick={() => setForm((prev) => ({ ...prev, priority: option.value }))}
@@ -211,6 +259,8 @@ export default function JobForm({ job, employees, onSave, onClose }) {
                 value={form.status}
                 onChange={handleChange}
                 className={errors.status ? "invalid" : ""}
+                aria-invalid={Boolean(errors.status)}
+                aria-describedby={errors.status ? "status-error" : undefined}
               >
                 {STATUS_OPTIONS.map((option) => (
                   <option key={option.value} value={option.value}>
@@ -218,7 +268,11 @@ export default function JobForm({ job, employees, onSave, onClose }) {
                   </option>
                 ))}
               </select>
-              {errors.status && <span className="field-error">{errors.status}</span>}
+              {errors.status && (
+                <span className="field-error" id="status-error">
+                  {errors.status}
+                </span>
+              )}
             </div>
           </div>
 
@@ -232,16 +286,23 @@ export default function JobForm({ job, employees, onSave, onClose }) {
               rows="3"
               placeholder="Any additional details…"
               className={errors.notes ? "invalid" : ""}
+              maxLength={1000}
+              aria-invalid={Boolean(errors.notes)}
+              aria-describedby={errors.notes ? "notes-error" : undefined}
             />
-            {errors.notes && <span className="field-error">{errors.notes}</span>}
+            {errors.notes && (
+              <span className="field-error" id="notes-error">
+                {errors.notes}
+              </span>
+            )}
           </div>
 
           <footer className="modal-actions">
             <button type="button" className="btn btn-ghost" onClick={onClose}>
               Cancel
             </button>
-            <button type="submit" className="btn btn-primary" disabled={submitting}>
-              {submitting ? "Saving…" : job ? "Save Changes" : "Add Job"}
+            <button type="submit" className="btn btn-primary">
+              {job ? "Save Changes" : "Add Job"}
             </button>
           </footer>
         </form>

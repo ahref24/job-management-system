@@ -1,7 +1,7 @@
 import { useState } from "react";
 import JobCard from "./JobCard";
 
-export default function KanbanColumn({ column, jobs, employees, onEdit, onDelete, onDrop }) {
+export default function KanbanColumn({ column, jobs, employees, onEdit, onDelete, onStatusChange, onDrop }) {
   const [isDragOver, setIsDragOver] = useState(false);
 
   const handleDragOver = (event) => {
@@ -13,18 +13,19 @@ export default function KanbanColumn({ column, jobs, employees, onEdit, onDelete
   const handleDrop = (event) => {
     event.preventDefault();
     setIsDragOver(false);
-    const jobId = event.dataTransfer.getData("application/x-job-id");
+    const jobId =
+      event.dataTransfer.getData("application/x-job-id") || event.dataTransfer.getData("text/plain");
     if (jobId) onDrop(jobId, column.status);
   };
 
-  const employeeFor = (id) => employees.find((e) => e.id === id);
+  const employeeFor = (id) => employees.find((employee) => employee.id === id);
 
   return (
     <section
       className={`kanban-column ${isDragOver ? "drop-target" : ""}`}
       onDragOver={handleDragOver}
-      onDragLeave={(e) => {
-        if (!e.currentTarget.contains(e.relatedTarget)) setIsDragOver(false);
+      onDragLeave={(event) => {
+        if (!event.currentTarget.contains(event.relatedTarget)) setIsDragOver(false);
       }}
       onDrop={handleDrop}
     >
@@ -47,8 +48,10 @@ export default function KanbanColumn({ column, jobs, employees, onEdit, onDelete
               employee={employeeFor(job.employeeId)}
               onEdit={onEdit}
               onDelete={onDelete}
+              onStatusChange={onStatusChange}
               onDragStart={(event, draggedJob) => {
                 event.dataTransfer.setData("application/x-job-id", draggedJob.id);
+                event.dataTransfer.setData("text/plain", draggedJob.id);
                 event.dataTransfer.effectAllowed = "move";
               }}
               onDragEnd={() => setIsDragOver(false)}

@@ -3,8 +3,14 @@ import react from "@vitejs/plugin-react";
 
 export default defineConfig({
   plugins: [react()],
+  // Relative asset paths so the build also works when hosted under a subpath.
+  base: "./",
   server: {
     port: 5173,
     open: true,
+  },
+  test: {
+    environment: "node",
+    include: ["src/**/*.test.{js,jsx}"],
   },
 });

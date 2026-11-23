@@ -1,99 +1,170 @@
 # Job Management System
 
-A clean, modern, fully responsive Kanban-style job/task board built with **React + Vite** that uses the browser's **Local Storage** as its database — no backend required. Data persists across page refreshes and browser restarts.
+A responsive Kanban-style job board built with **React + Vite**. It works fully
+offline with browser storage by default, and can optionally use a **Google
+Sheet** as a shared database through a bound Apps Script web app — no backend
+server required.
 
 ## Features
 
-- **Full CRUD** — add, view, edit, and delete jobs.
-- **Kanban board** — three columns: **To Do**, **In Progress**, **Complete**.
-- **Drag & drop** — drag a job card between columns to change its status instantly.
-- **Status in edit form** — change status from the edit modal as well.
-- **Assign jobs** to employees (seed list included, stored separately).
-- **Due dates & priorities** — set due dates and low/medium/high/urgent priorities with visual badges.
-- **Job notes** — add internal notes to every job.
-- **Filtering** — filter by status, by assigned employee, and full-text search.
-- **Stats strip** — live counts for total / to do / in progress / complete / overdue.
-- **Overdue highlighting** — overdue open jobs get a red accent.
-- **Form validation** — client-side validation with inline error messages.
-- **Delete confirmation** — destructive actions require confirmation.
-- **Persistent storage** — every change is saved to Local Storage automatically.
-- **Seed data** — ships with a few example jobs on first launch (only until you add your own).
+- **Full job CRUD** — add, view, edit, and delete jobs.
+- **Kanban board** — To Do, In Progress, Complete.
+- **Drag & drop** on desktop, plus a **status picker on every card** so touch
+  and keyboard users can move work without dragging.
+- **Assignments** — jobs are assigned to employees from a shared list.
+- **Due dates & priorities** — low/medium/high/urgent badges, "due today" and
+  "overdue by N days" hints.
+- **Filtering** — by status, employee, and full-text search across titles,
+  descriptions, notes, and assignee names.
+- **Stats strip** — total, to do, in progress, complete, overdue.
+- **Validation and confirmation** — inline form errors and a delete dialog.
+- **Optional Google Sheets sync** — shared data, offline cache, queued writes
+  and automatic retry.
+- **Accessible dialogs** — focus trap, Escape to close, focus restoration, and
+  labelled form fields.
 
-## Tech Stack
+## Tech stack
 
-- React 18 (function components + hooks)
+- React 18 (function components and hooks)
 - Vite 5
-- Plain CSS (no UI framework, no external drag-drop library — native HTML5 Drag & Drop API)
+- Plain CSS (no UI or drag-and-drop libraries)
+- Vitest + ESLint for tests and static checks
+- Google Apps Script + Google Sheets (optional backend)
 
-## Getting Started
+## Getting started
 
-### Prerequisites
-
-- Node.js **18+** (tested with 22.x)
-- npm (bundled with Node)
-
-### Install and run
+Requires Node.js 20.19 or newer.
 
 ```bash
-# 1. Install dependencies
 npm install
-
-# 2. Start the dev server (opens http://localhost:5173)
-npm run dev
+npm run dev      # http://localhost:5173
 ```
 
-### Production build
+Production build:
 
 ```bash
-# 1. Create an optimized production bundle in /dist
 npm run build
-
-# 2. Preview the production build locally
 npm run preview
 ```
 
-## Project Structure
+Other scripts:
 
-```
-.
-├── index.html                     # Entry HTML
-├── package.json
-├── vite.config.js
-└── src/
-    ├── main.jsx                   # React root
-    ├── App.jsx                    # State, CRUD, filtering, drag-drop wiring
-    ├── constants.js               # Statuses, priorities, employee seed list
-    ├── styles/
-    │   └── index.css              # All styles (dark-striped, responsive)
-    ├── hooks/
-    │   └── useLocalStorage.js     # Persistence hook (reads/writes Local Storage)
-    └── utils/
-        └── helpers.js             # IDs, date helpers, overdue logic, seed jobs
-    └── components/
-        ├── KanbanBoard.jsx        # 3-column grid wrapper
-        ├── KanbanColumn.jsx       # Single column with drop handling
-        ├── JobCard.jsx            # Job card (drag source, edit/delete buttons)
-        ├── JobForm.jsx            # Add/Edit modal with validation
-        ├── ConfirmDialog.jsx      # Delete confirmation modal
-        ├── FilterBar.jsx          # Search + status/employee filters
-        └── StatCards.jsx          # Summary stats
+```bash
+npm test         # unit tests (Vitest)
+npm run lint     # ESLint
 ```
 
-## How Data Persists
+## Using Google Sheets as the database
 
-- Jobs are stored under the Local Storage key `jms.jobs.v1`.
-- Employees are stored under `jms.employees.v1`.
-- The `useLocalStorage` hook in `src/hooks/useLocalStorage.js` initializes state from storage and writes back on every change.
-- **To reset the demo:** clear your browser site data, or run `localStorage.clear()` in the DevTools console.
+By default the app stores everything in `localStorage`. To share data through a
+spreadsheet:
 
-## Drag & Drop Details
+1. Follow [`apps-script/README.md`](./apps-script/README.md) to create the sheet,
+   paste [`apps-script/Code.gs`](./apps-script/Code.gs), run `setup`, and deploy
+   it as a web app.
+2. Copy `.env.example` to `.env.local` and fill in:
 
-- The native HTML5 Drag & Drop API is used (no dependency).
-- Card `dragstart` writes the job id to the data transfer payload.
-- Each column listens for `dragover` (with `preventDefault`) and `drop`, then moves the job to that status via `App.handleMoveJob`, which updates Local Storage automatically.
+   ```bash
+   VITE_SHEETS_URL=https://script.google.com/macros/s/XXXX/exec
+   VITE_SHEETS_TOKEN=the-same-long-random-string
+   ```
 
-## Notes
+3. Restart the dev server (or rebuild). The sync bar appears above the stats.
 
-- Resetting the app (clearing storage) re-seeds the sample jobs.
-- The UI is responsive: 3 columns on desktop, stacked on mobile.
-- Overdue jobs (past due date, not "Complete") are highlighted in red on their card.
+If the environment variables are missing, the app silently falls back to local
+storage.
+
+### What sync looks like
+
+- Reads happen on load, every 20 seconds while the tab is visible, and on
+  focus/online events.
+- Writes are optimistic: the board updates immediately, then the change is
+  queued. Failed writes retry with backoff and survive a page reload through the
+  local cache.
+- The last successful read is cached, so the board still opens offline.
+- Deletions are soft (`deletedAt`) so other open tabs learn about them.
+- If the sheet is empty and the browser has existing local jobs, the sync bar
+  offers a one-time **Import N local jobs** action.
+- If the `Employees` sheet is empty, the default employee list is seeded on the
+  first successful connection.
+
+**Security caveat:** the web app URL is public and `VITE_*` values are embedded
+in the bundle. The token prevents accidental writes, not a determined attacker.
+For real access control, put a small server in front of the sheet; the
+repository interface is designed so only one adapter needs to change.
+
+## Architecture
+
+```
+src/
+├── main.jsx
+├── App.jsx                    # Layout, filters, modals
+├── constants.js               # Statuses, priorities, default employees
+├── components/
+│   ├── KanbanBoard.jsx
+│   ├── KanbanColumn.jsx       # Drop target
+│   ├── JobCard.jsx            # Drag source + status picker
+│   ├── JobForm.jsx            # Add/edit dialog
+│   ├── ConfirmDialog.jsx
+│   ├── FilterBar.jsx
+│   ├── StatCards.jsx
+│   └── SyncStatus.jsx         # Google Sheets state/queue banner
+├── hooks/
+│   ├── useJobs.js             # State, optimistic writes, outbox, polling
+│   └── useFocusTrap.js        # Dialog focus management
+├── data/
+│   ├── repository.js          # Chooses local vs Sheets from env
+│   ├── localRepository.js     # localStorage adapter (validated)
+│   ├── sheetsRepository.js    # Apps Script adapter + cache
+│   ├── http.js                # text/plain requests, retry/backoff, timeout
+│   ├── normalize.js           # Shape/date/enum coercion
+│   ├── ops.js                 # Replays queued writes over snapshots
+│   ├── outbox.js              # Persists the write queue across reloads
+│   └── storage.js             # Safe JSON storage helpers
+├── utils/
+│   ├── helpers.js             # Dates, overdue logic, ids, seed data
+│   └── sort.js                # Per-column sorting
+└── styles/index.css
+apps-script/
+├── Code.gs                    # Web app: GET snapshot, POST mutations
+└── README.md                  # Deployment walkthrough
+```
+
+The UI only talks to `useJobs()`. Persistence lives behind a small repository
+contract (`load`, `upsertJob`, `deleteJob`, `upsertEmployee`, `readCached`,
+`writeCache`), so switching between local storage, Apps Script, or a future
+backend is an adapter change.
+
+### Data model
+
+`Job`:
+
+| Field | Notes |
+| --- | --- |
+| `id` | `job-<uuid>` |
+| `title` | required, 3–120 chars |
+| `description` | optional, ≤500 chars |
+| `employeeId` | required |
+| `dueDate` | `YYYY-MM-DD` or empty |
+| `priority` | `low` / `medium` / `high` / `urgent` |
+| `status` | `todo` / `in_progress` / `complete` |
+| `notes` | optional, ≤1000 chars |
+| `createdAt`, `updatedAt` | ISO timestamps |
+
+`Employee`: `id`, `name`, `active`.
+
+## Limitations
+
+- Google Sheets is not a transactional database. Writes are serialized with
+  `LockService`, but concurrent edits use last-write-wins.
+- Apps Script quotas make this suitable for a small team, not high traffic.
+- Without a configured sheet, data lives only in the current browser profile and
+  is not shared between devices.
+- Deleting a job writes a `deletedAt` marker; prune old rows manually if the
+  sheet grows.
+
+## Resetting demo data
+
+- Local mode: clear the site's storage or run `localStorage.clear()` in DevTools.
+- Sheets mode: delete the rows in the `Jobs` tab (keep the header row), then
+  reload. To re-seed the demo jobs locally, also clear the `jms.cache.v1` key.

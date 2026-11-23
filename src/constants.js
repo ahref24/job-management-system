@@ -10,7 +10,7 @@ export const STATUS_OPTIONS = [
   { value: STATUS.COMPLETE, label: "Complete" },
 ];
 
-export const PRIORITIES = {
+const PRIORITIES = {
   LOW: "low",
   MEDIUM: "medium",
   HIGH: "high",
@@ -25,8 +25,8 @@ export const PRIORITY_OPTIONS = [
 ];
 
 export const DEFAULT_EMPLOYEES = [
-  { id: "emp-1", name: "Ava Martinez" },
-  { id: "emp-2", name: "Liam Johnson" },
-  { id: "emp-3", name: "Sofia Chen" },
-  { id: "emp-4", name: "Noah Williams" },
+  { id: "emp-1", name: "Ava Martinez", active: true },
+  { id: "emp-2", name: "Liam Johnson", active: true },
+  { id: "emp-3", name: "Sofia Chen", active: true },
+  { id: "emp-4", name: "Noah Williams", active: true },
 ];

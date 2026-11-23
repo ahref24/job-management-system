@@ -5,6 +5,12 @@ node_modules/
 dist/
 .kilo/
 
+# Environment
+.env
+.env.local
+.env.*.local
+!.env.example
+
 # Logs
 logs/
 *.log
