@@ -19,9 +19,10 @@ function shouldRetry(error) {
 }
 
 /**
- * JSON request helper tuned for Google Apps Script:
- * - sends bodies as text/plain so the browser does not trigger a CORS
- *   preflight (Apps Script cannot answer OPTIONS requests);
+ * JSON request helper:
+ * - defaults to application/json for same-origin calls to the local API proxy;
+ * - can send text/plain for server-to-server Apps Script calls (Apps Script
+ *   cannot answer CORS preflight requests);
  * - retries transient failures with backoff;
  * - aborts hung requests.
  */
@@ -30,6 +31,7 @@ export async function requestJson(
   {
     method = "GET",
     body,
+    contentType = "application/json",
     fetchImpl = globalThis.fetch,
     attempts = DEFAULT_ATTEMPTS,
     timeoutMs = DEFAULT_TIMEOUT_MS,
@@ -48,7 +50,7 @@ export async function requestJson(
     try {
       const response = await fetchImpl(url, {
         method,
-        headers: body === undefined ? undefined : { "Content-Type": "text/plain;charset=utf-8" },
+        headers: body === undefined ? undefined : { "Content-Type": contentType },
         body: body === undefined ? undefined : JSON.stringify(body),
         signal: controller ? controller.signal : undefined,
         redirect: "follow",

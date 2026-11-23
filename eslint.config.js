@@ -10,7 +10,11 @@ export default [
     languageOptions: {
       ecmaVersion: 2022,
       sourceType: "module",
-      globals: { ...globals.browser, ...globals.node },
+      globals: {
+        ...globals.browser,
+        ...globals.node,
+        __SHEETS_ENABLED__: "readonly",
+      },
       parserOptions: { ecmaFeatures: { jsx: true } },
     },
     plugins: {

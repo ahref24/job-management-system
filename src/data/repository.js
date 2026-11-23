@@ -1,23 +1,19 @@
 import { createLocalRepository } from "./localRepository";
 import { createSheetsRepository } from "./sheetsRepository";
 
-function envValue(env, key) {
-  const value = env && env[key];
-  return typeof value === "string" ? value.trim() : "";
-}
+const SHEETS_ENABLED =
+  typeof __SHEETS_ENABLED__ !== "undefined" && Boolean(__SHEETS_ENABLED__);
+
+export const SHEETS_ENDPOINT = "/api/sheets";
 
 /**
- * Choose the persistence backend. Set VITE_SHEETS_URL (and optionally
- * VITE_SHEETS_TOKEN) to use Google Sheets; otherwise the app keeps everything
- * in this browser.
+ * Choose the persistence backend. Google Sheets is enabled at build time when
+ * SHEETS_URL is present (Vercel env var or .env.local). The browser only ever
+ * talks to the same-origin proxy, so no credentials ship in the bundle.
  */
-export function createRepository(env = import.meta.env) {
-  const url = envValue(env, "VITE_SHEETS_URL");
-  if (url) {
-    return createSheetsRepository({
-      url,
-      token: envValue(env, "VITE_SHEETS_TOKEN"),
-    });
-  }
-  return createLocalRepository();
+export function createRepository({
+  sheetsEnabled = SHEETS_ENABLED,
+  endpoint = SHEETS_ENDPOINT,
+} = {}) {
+  return sheetsEnabled ? createSheetsRepository({ url: endpoint }) : createLocalRepository();
 }

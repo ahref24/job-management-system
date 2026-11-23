@@ -12,8 +12,8 @@
  *   5. Deploy > New deployment > Web app.
  *        Execute as: Me
  *        Who has access: Anyone
- *   6. Copy the /exec URL into VITE_SHEETS_URL and the token into
- *      VITE_SHEETS_TOKEN in .env.local.
+ *   6. Copy the /exec URL into SHEETS_URL and the token into SHEETS_TOKEN
+ *      (in .env.local locally, or Vercel project env vars in production).
  *
  * See apps-script/README.md for the full walkthrough.
  */

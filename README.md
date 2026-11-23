@@ -61,18 +61,48 @@ spreadsheet:
 
 1. Follow [`apps-script/README.md`](./apps-script/README.md) to create the sheet,
    paste [`apps-script/Code.gs`](./apps-script/Code.gs), run `setup`, and deploy
-   it as a web app.
+   it as a web app with access set to **Anyone**.
 2. Copy `.env.example` to `.env.local` and fill in:
 
    ```bash
-   VITE_SHEETS_URL=https://script.google.com/macros/s/XXXX/exec
-   VITE_SHEETS_TOKEN=the-same-long-random-string
+   SHEETS_URL=https://script.google.com/macros/s/XXXX/exec
+   SHEETS_TOKEN=the-same-long-random-string
    ```
+
+   These are **server-side** variables. Do not add a `VITE_` prefix — the
+   browser never needs them.
 
 3. Restart the dev server (or rebuild). The sync bar appears above the stats.
 
-If the environment variables are missing, the app silently falls back to local
-storage.
+If `SHEETS_URL` is missing, the app silently falls back to local storage.
+
+### How the proxy works
+
+The browser calls `/api/sheets` on its own origin, never Google directly:
+
+- In production on Vercel, [`api/sheets.js`](./api/sheets.js) handles the request.
+- During `npm run dev` and `npm run preview`, a Vite middleware runs the same
+  handler from [`server/sheets.js`](./server/sheets.js).
+- The handler appends `SHEETS_TOKEN` and calls the Apps Script URL
+  server-to-server, so the browser's CORS rules do not apply.
+- The token is never included in the JavaScript bundle.
+
+This means the Apps Script deployment only needs to be reachable by the server;
+keep **Who has access: Anyone** so the proxy can read it without a Google login.
+
+### Deploying to Vercel
+
+1. Import the repository into Vercel (framework preset: **Vite**).
+2. Open **Project Settings → Environment Variables** and add:
+   - `SHEETS_URL`
+   - `SHEETS_TOKEN`
+3. Apply them to Production (and Preview/Development if you use those).
+4. Redeploy. Vercel builds the client with Sheets mode enabled and deploys
+   `api/sheets.js` as a serverless function.
+5. Remove any old `VITE_SHEETS_*` variables — they are no longer read.
+
+If you add or change the variables later, trigger a new deployment so the
+build-time Sheets flag is refreshed.
 
 ### What sync looks like
 
@@ -80,7 +110,7 @@ storage.
   focus/online events.
 - Writes are optimistic: the board updates immediately, then the change is
   queued. Failed writes retry with backoff and survive a page reload through the
-  local cache.
+  persisted outbox.
 - The last successful read is cached, so the board still opens offline.
 - Deletions are soft (`deletedAt`) so other open tabs learn about them.
 - If the sheet is empty and the browser has existing local jobs, the sync bar
@@ -88,10 +118,10 @@ storage.
 - If the `Employees` sheet is empty, the default employee list is seeded on the
   first successful connection.
 
-**Security caveat:** the web app URL is public and `VITE_*` values are embedded
-in the bundle. The token prevents accidental writes, not a determined attacker.
-For real access control, put a small server in front of the sheet; the
-repository interface is designed so only one adapter needs to change.
+**Security note:** `/api/sheets` is publicly callable by anyone who can load the
+app, so treat the sheet as shared data. The token itself stays server-side. Add
+authentication or rate limiting in front of the endpoint if you need stronger
+access control.
 
 ## Architecture
 
@@ -113,10 +143,10 @@ src/
 │   ├── useJobs.js             # State, optimistic writes, outbox, polling
 │   └── useFocusTrap.js        # Dialog focus management
 ├── data/
-│   ├── repository.js          # Chooses local vs Sheets from env
+│   ├── repository.js          # Chooses local vs Sheets at build time
 │   ├── localRepository.js     # localStorage adapter (validated)
-│   ├── sheetsRepository.js    # Apps Script adapter + cache
-│   ├── http.js                # text/plain requests, retry/backoff, timeout
+│   ├── sheetsRepository.js    # Same-origin proxy adapter + cache
+│   ├── http.js                # JSON/text requests, retry/backoff, timeout
 │   ├── normalize.js           # Shape/date/enum coercion
 │   ├── ops.js                 # Replays queued writes over snapshots
 │   ├── outbox.js              # Persists the write queue across reloads
@@ -125,6 +155,10 @@ src/
 │   ├── helpers.js             # Dates, overdue logic, ids, seed data
 │   └── sort.js                # Per-column sorting
 └── styles/index.css
+api/
+└── sheets.js                  # Vercel serverless proxy
+server/
+└── sheets.js                  # Shared proxy logic (holds the token)
 apps-script/
 ├── Code.gs                    # Web app: GET snapshot, POST mutations
 └── README.md                  # Deployment walkthrough
@@ -132,7 +166,7 @@ apps-script/
 
 The UI only talks to `useJobs()`. Persistence lives behind a small repository
 contract (`load`, `upsertJob`, `deleteJob`, `upsertEmployee`, `readCached`,
-`writeCache`), so switching between local storage, Apps Script, or a future
+`writeCache`), so switching between local storage, the Sheets proxy, or a future
 backend is an adapter change.
 
 ### Data model
@@ -162,6 +196,9 @@ backend is an adapter change.
   is not shared between devices.
 - Deleting a job writes a `deletedAt` marker; prune old rows manually if the
   sheet grows.
+- If `/api/sheets` returns `The server returned an unexpected response.`, the
+  Apps Script deployment is not public. Set **Who has access: Anyone** and
+  redeploy it.
 
 ## Resetting demo data
 

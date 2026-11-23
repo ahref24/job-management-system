@@ -43,7 +43,7 @@ describe("requestJson", () => {
     expect(fetchImpl).toHaveBeenCalledTimes(1);
   });
 
-  it("sends POST bodies as text/plain to avoid a CORS preflight", async () => {
+  it("sends POST bodies as JSON by default", async () => {
     const fetchImpl = vi.fn().mockResolvedValue(jsonResponse({ ok: true }));
     await requestJson("https://example.test", {
       method: "POST",
@@ -53,8 +53,21 @@ describe("requestJson", () => {
 
     const [, init] = fetchImpl.mock.calls[0];
     expect(init.method).toBe("POST");
-    expect(init.headers["Content-Type"]).toContain("text/plain");
+    expect(init.headers["Content-Type"]).toContain("application/json");
     expect(JSON.parse(init.body)).toEqual({ hello: "world" });
+  });
+
+  it("can send text/plain for server-to-server Apps Script calls", async () => {
+    const fetchImpl = vi.fn().mockResolvedValue(jsonResponse({ ok: true }));
+    await requestJson("https://example.test", {
+      method: "POST",
+      body: { hello: "world" },
+      contentType: "text/plain;charset=utf-8",
+      fetchImpl,
+    });
+
+    const [, init] = fetchImpl.mock.calls[0];
+    expect(init.headers["Content-Type"]).toContain("text/plain");
   });
 
   it("rejects responses that are not JSON", async () => {

@@ -41,15 +41,42 @@ web app. No backend server, API key, or OAuth consent screen is required.
 Create `.env.local` in the project root:
 
 ```bash
-VITE_SHEETS_URL=https://script.google.com/macros/s/XXXX/exec
-VITE_SHEETS_TOKEN=the-same-long-random-string
+SHEETS_URL=https://script.google.com/macros/s/XXXX/exec
+SHEETS_TOKEN=the-same-long-random-string
 ```
+
+These are server-side variables. Do **not** prefix them with `VITE_`: the browser
+never receives them. The app calls its own `/api/sheets` proxy, which adds the
+token and talks to Apps Script from the server.
 
 Restart `npm run dev`. The header shows a sync bar; the first successful read is
 cached locally so the board still opens offline.
 
 If `.env.local` is missing, the app keeps using browser local storage exactly as
 before.
+
+### Vercel
+
+Add `SHEETS_URL` and `SHEETS_TOKEN` under **Project Settings → Environment
+Variables**, then redeploy. `api/sheets.js` becomes the proxy. Remove any old
+`VITE_SHEETS_*` variables.
+
+### Why the proxy exists
+
+Google Apps Script does not answer CORS preflight requests, and some deployments
+omit `Access-Control-Allow-Origin` entirely. Calling Apps Script from the browser
+therefore fails with a CORS error. Routing through `/api/sheets` keeps every
+browser request same-origin, so CORS never applies, and keeps the token out of
+the bundle.
+
+### Troubleshooting
+
+- `{"ok":false,"error":"The server returned an unexpected response."}` from
+  `/api/sheets` means Google returned a sign-in page instead of sheet data. Open
+  the Apps Script editor, go to **Deploy → Manage deployments**, edit the active
+  deployment, set **Who has access: Anyone**, and deploy again.
+- `{"ok":false,"error":"unauthorized"}` means `SHEETS_TOKEN` does not match
+  `TOKEN` in `Code.gs`.
 
 ## 5. Migrating existing local data
 
@@ -59,13 +86,13 @@ written to the sheet.
 
 ## Security notes
 
-- The `/exec` URL is public. Anyone who has both the URL **and** the token can
-  read and write the sheet.
-- `VITE_*` variables are embedded in the JavaScript bundle, so the token is
-  visible to anyone who opens the app. It stops accidental writes and casual
-  scanning, not a determined attacker.
-- For real access control, put a small server in front of the sheet and keep the
-  token server-side (the repository layer is designed to allow that swap).
+- The `/exec` URL and `SHEETS_TOKEN` live only in server-side environment
+  variables (Vercel project settings or `.env.local`).
+- The `/api/sheets` endpoint itself is public to anyone who can load the app.
+  Treat the sheet as shared data and add authentication/rate limiting in front of
+  the proxy if you need stronger control.
+- Keep **Who has access: Anyone** on the Apps Script deployment, otherwise the
+  server-side proxy receives a Google sign-in page instead of JSON.
 - Treat the sheet as shared data: do not store secrets in job titles or notes.
 
 ## Limits
@@ -85,5 +112,5 @@ written to the sheet.
 
 - After editing `Code.gs`, use **Deploy → Manage deployments → Edit → New
   version**. A new deployment URL is only created if you add a new deployment.
-- If you rotate `TOKEN`, update `VITE_SHEETS_TOKEN` and restart the dev server /
-  rebuild the app.
+- If you rotate `TOKEN`, update `SHEETS_TOKEN` in `.env.local` / Vercel and
+  restart the dev server or redeploy.

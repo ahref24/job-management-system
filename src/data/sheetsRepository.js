@@ -26,28 +26,23 @@ function readLegacy() {
   return { jobs, employees, savedAt: null, source: "legacy" };
 }
 
-function withToken(url, token) {
-  if (!token) return url;
-  const separator = url.includes("?") ? "&" : "?";
-  return `${url}${separator}token=${encodeURIComponent(token)}`;
-}
-
 /**
- * Google Sheets repository. Reads through a bound Apps Script web app and
- * writes with simple text/plain POSTs. Successful reads are cached locally so
- * the board still boots when the network (or the script) is unavailable.
+ * Google Sheets repository. The browser talks to a same-origin API proxy
+ * (`/api/sheets`), which forwards to the Apps Script web app and keeps the
+ * token on the server. Successful reads are cached locally so the board still
+ * boots when the network (or the script) is unavailable.
  */
-export function createSheetsRepository({ url, token = "", fetchImpl } = {}) {
-  if (!url) throw new Error("A Google Apps Script URL is required.");
+export function createSheetsRepository({ url = "/api/sheets", fetchImpl } = {}) {
+  if (!url) throw new Error("A Sheets API endpoint is required.");
 
   const post = (action, payload) =>
-    requestJson(url, { method: "POST", body: { action, token, payload }, fetchImpl });
+    requestJson(url, { method: "POST", body: { action, payload }, fetchImpl });
 
   return {
     kind: "sheets",
     readCached: () => readCache() || readLegacy(),
     async load() {
-      const data = await requestJson(withToken(url, token), { fetchImpl });
+      const data = await requestJson(url, { fetchImpl });
       if (!data || data.ok !== true) {
         throw new Error(data && data.error ? data.error : "Google Sheets rejected the request.");
       }
