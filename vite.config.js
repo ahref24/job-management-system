@@ -44,7 +44,7 @@ function sheetsApiPlugin(env) {
   };
 
   return {
-    name: "jobboard-sheets-api",
+    name: "taskboard-sheets-api",
     configureServer(server) {
       server.middlewares.use("/api/sheets", middleware);
     },

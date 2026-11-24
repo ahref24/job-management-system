@@ -38,7 +38,7 @@ export default function KanbanColumn({ column, jobs, employees, onEdit, onDelete
       <div className="column-body">
         {jobs.length === 0 ? (
           <div className="column-empty">
-            <p>No jobs here</p>
+            <p>No tasks here</p>
           </div>
         ) : (
           jobs.map((job) => (

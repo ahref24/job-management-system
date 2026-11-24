@@ -176,7 +176,7 @@ export default function JobForm({ job, employees, onSave, onClose }) {
         onMouseDown={(event) => event.stopPropagation()}
       >
         <header className="modal-header">
-          <h2 id="job-form-title">{job ? "Edit Job" : "Add New Job"}</h2>
+          <h2 id="job-form-title">{job ? "Edit Task" : "Add New Task"}</h2>
           <button type="button" className="icon-btn" aria-label="Close" onClick={onClose}>
             <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
               <line x1="18" y1="6" x2="6" y2="18" />
@@ -187,7 +187,7 @@ export default function JobForm({ job, employees, onSave, onClose }) {
 
         <form onSubmit={handleSubmit} noValidate>
           <div className="form-group">
-            <label htmlFor="title">Job Title *</label>
+            <label htmlFor="title">Task Title *</label>
             <input
               id="title"
               name="title"
@@ -231,7 +231,7 @@ export default function JobForm({ job, employees, onSave, onClose }) {
 
           <div className="form-row">
             <div className="form-group">
-              <label htmlFor="employeeName">Assigned Employee *</label>
+              <label htmlFor="employeeName">Assigned Member *</label>
               <input
                 id="employeeName"
                 name="employeeName"
@@ -254,7 +254,7 @@ export default function JobForm({ job, employees, onSave, onClose }) {
               </datalist>
               <span className="field-hint" id="employeeName-hint">
                 Pick someone from the list or type a new name — they are added to the
-                employee list automatically.
+                member list automatically.
               </span>
               {errors.employeeName && (
                 <span className="field-error" id="employeeName-error">
@@ -376,7 +376,7 @@ export default function JobForm({ job, employees, onSave, onClose }) {
               Cancel
             </button>
             <button type="submit" className="btn btn-primary">
-              {job ? "Save Changes" : "Add Job"}
+              {job ? "Save Changes" : "Add Task"}
             </button>
           </footer>
         </form>

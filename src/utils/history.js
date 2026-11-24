@@ -53,7 +53,7 @@ const statusLabel = (value) =>
 /** Human-readable one-liner used by the job form activity list. */
 export function describeHistoryEntry(entry) {
   if (!isValidEntry(entry)) return "";
-  if (entry.type === "created") return "Job created";
+  if (entry.type === "created") return "Task created";
   if (entry.type === "status") {
     return entry.from
       ? `Status changed from ${statusLabel(entry.from)} to ${statusLabel(entry.to)}`

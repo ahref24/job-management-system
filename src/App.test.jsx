@@ -9,6 +9,6 @@ describe("App", () => {
     expect(html).toContain("To Do");
     expect(html).toContain("In Progress");
     expect(html).toContain("Complete");
-    expect(html).toContain("Total Jobs");
+    expect(html).toContain("Total Tasks");
   });
 });

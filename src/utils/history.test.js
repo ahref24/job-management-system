@@ -68,7 +68,7 @@ describe("appendHistory / serializeHistory", () => {
 describe("describeHistoryEntry", () => {
   it("labels creation, status changes and edits", () => {
     expect(describeHistoryEntry({ at: "2026-11-24T10:00:00.000Z", type: "created" })).toBe(
-      "Job created"
+      "Task created"
     );
     expect(
       describeHistoryEntry({

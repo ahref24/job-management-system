@@ -43,9 +43,9 @@ export default function FilterBar({
       <select
         value={employeeFilter}
         onChange={(event) => onEmployeeFilter(event.target.value)}
-        aria-label="Filter by employee"
+        aria-label="Filter by volunteer"
       >
-        <option value="all">All employees</option>
+        <option value="all">All member</option>
         {employees.map((employee) => (
           <option key={employee.id} value={employee.id}>
             {employee.name}

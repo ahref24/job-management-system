@@ -8,7 +8,7 @@ export default function StatCards({ jobs }) {
   const overdue = jobs.filter((job) => isOverdue(job)).length;
 
   const stats = [
-    { label: "Total Jobs", value: jobs.length, className: "stat-total" },
+    { label: "Total Tasks", value: jobs.length, className: "stat-total" },
     { label: "To Do", value: todo, className: "stat-todo" },
     { label: "In Progress", value: inProgress, className: "stat-progress" },
     { label: "Complete", value: complete, className: "stat-complete" },

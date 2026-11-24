@@ -123,8 +123,8 @@ export default function App() {
               </svg>
             </span>
             <span className="brand-text">
-              <strong>JobBoard</strong>
-              <small>Job Management System</small>
+              <strong>TaskBoard</strong>
+              <small>DGM Core task management</small>
             </span>
           </div>
           <button type="button" className="btn btn-primary" onClick={openCreateForm}>
@@ -132,7 +132,7 @@ export default function App() {
               <line x1="12" y1="5" x2="12" y2="19" />
               <line x1="5" y1="12" x2="19" y2="12" />
             </svg>
-            Add Job
+            Add Task
           </button>
         </div>
       </header>
