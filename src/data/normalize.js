@@ -1,5 +1,6 @@
 import { PRIORITY_OPTIONS, STATUS } from "../constants";
 import { normalizeDueDate, uid } from "../utils/helpers";
+import { parseHistory, serializeHistory } from "../utils/history";
 
 const STATUS_VALUES = new Set(Object.values(STATUS));
 const PRIORITY_VALUES = new Set(PRIORITY_OPTIONS.map((option) => option.value));
@@ -16,6 +17,12 @@ export function normalizeJob(raw, now = new Date().toISOString()) {
   const title = text(raw.title).trim();
   if (!title) return null;
   const createdAt = stamp(raw.createdAt, now);
+  const updatedAt = stamp(raw.updatedAt, createdAt);
+  const status = STATUS_VALUES.has(raw.status) ? raw.status : STATUS.TODO;
+  const completedAt = stamp(
+    raw.completedAt,
+    status === STATUS.COMPLETE ? updatedAt : ""
+  );
   return {
     id: text(raw.id).trim() || uid("job"),
     title,
@@ -23,10 +30,12 @@ export function normalizeJob(raw, now = new Date().toISOString()) {
     employeeId: text(raw.employeeId),
     dueDate: normalizeDueDate(raw.dueDate),
     priority: PRIORITY_VALUES.has(raw.priority) ? raw.priority : "medium",
-    status: STATUS_VALUES.has(raw.status) ? raw.status : STATUS.TODO,
+    status,
     notes: text(raw.notes),
     createdAt,
-    updatedAt: stamp(raw.updatedAt, createdAt),
+    updatedAt,
+    completedAt,
+    history: serializeHistory(parseHistory(raw.history)),
   };
 }
 

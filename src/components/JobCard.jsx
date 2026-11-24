@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { PRIORITY_OPTIONS, STATUS_OPTIONS } from "../constants";
-import { daysRemaining, formatDateDisplay, isOverdue } from "../utils/helpers";
+import { daysRemaining, formatDateDisplay, formatDateTimeDisplay, isOverdue } from "../utils/helpers";
 
 function PriorityBadge({ priority }) {
   const option = PRIORITY_OPTIONS.find((item) => item.value === priority) || PRIORITY_OPTIONS[1];
@@ -127,6 +127,24 @@ export default function JobCard({
         <EmployeeBadge employee={employee} />
         <DueDate job={job} />
       </footer>
+
+      {(job.updatedAt || job.completedAt) && (
+        <div className="job-timestamps">
+          {job.updatedAt && (
+            <span title={`Updated ${formatDateTimeDisplay(job.updatedAt)}`}>
+              Updated {formatDateDisplay(job.updatedAt)}
+            </span>
+          )}
+          {job.completedAt && (
+            <span
+              className="completed-stamp"
+              title={`Completed ${formatDateTimeDisplay(job.completedAt)}`}
+            >
+              Completed {formatDateDisplay(job.completedAt)}
+            </span>
+          )}
+        </div>
+      )}
 
       <div className="card-status">
         <label htmlFor={`status-${job.id}`}>Move to</label>

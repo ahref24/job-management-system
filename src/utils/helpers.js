@@ -53,6 +53,20 @@ export function formatDateDisplay(dateString) {
   });
 }
 
+/** Format an ISO timestamp (createdAt/updatedAt/completedAt) for display. */
+export function formatDateTimeDisplay(value) {
+  if (!value) return "";
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  return date.toLocaleString(undefined, {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  });
+}
+
 function startOfDay(reference) {
   return new Date(todayISO(reference) + "T00:00:00");
 }

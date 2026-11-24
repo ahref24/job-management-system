@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   daysRemaining,
   formatDateDisplay,
+  formatDateTimeDisplay,
   isOverdue,
   normalizeDueDate,
   todayISO,
@@ -47,6 +48,14 @@ describe("formatDateDisplay", () => {
 
   it("renders a valid date", () => {
     expect(formatDateDisplay("2026-11-23")).not.toBe("No due date");
+  });
+});
+
+describe("formatDateTimeDisplay", () => {
+  it("formats valid timestamps and ignores empty or invalid values", () => {
+    expect(formatDateTimeDisplay("")).toBe("");
+    expect(formatDateTimeDisplay("garbage")).toBe("");
+    expect(formatDateTimeDisplay("2026-11-24T10:00:00.000Z")).not.toBe("");
   });
 });
 

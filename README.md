@@ -11,9 +11,14 @@ server required.
 - **Kanban board** — To Do, In Progress, Complete.
 - **Drag & drop** on desktop, plus a **status picker on every card** so touch
   and keyboard users can move work without dragging.
-- **Assignments** — jobs are assigned to employees from a shared list.
+- **Assignments** — jobs are assigned from a shared employee list. You can type a
+  new name in the form and it is added to the list (and the `Employees` sheet)
+  automatically.
 - **Due dates & priorities** — low/medium/high/urgent badges, "due today" and
   "overdue by N days" hints.
+- **Update tracking** — every status move and edit is timestamped, and the card
+  shows when the job was last updated or completed. The edit dialog lists the
+  recent activity history.
 - **Filtering** — by status, employee, and full-text search across titles,
   descriptions, notes, and assignee names.
 - **Stats strip** — total, to do, in progress, complete, overdue.
@@ -117,6 +122,10 @@ build-time Sheets flag is refreshed.
   offers a one-time **Import N local jobs** action.
 - If the `Employees` sheet is empty, the default employee list is seeded on the
   first successful connection.
+- Typing a new employee name on a job adds a row to the `Employees` sheet before
+  the job write, without redeploying anything.
+- New job columns (`completedAt`, `history`) are appended automatically to an
+  existing `Jobs` sheet the first time the script reads it.
 
 **Security note:** `/api/sheets` is publicly callable by anyone who can load the
 app, so treat the sheet as shared data. The token itself stays server-side. Add
@@ -153,6 +162,8 @@ src/
 │   └── storage.js             # Safe JSON storage helpers
 ├── utils/
 │   ├── helpers.js             # Dates, overdue logic, ids, seed data
+│   ├── employees.js           # Case-insensitive employee name matching
+│   ├── history.js             # Update log serialisation/formatting
 │   └── sort.js                # Per-column sorting
 └── styles/index.css
 api/
@@ -184,6 +195,8 @@ backend is an adapter change.
 | `status` | `todo` / `in_progress` / `complete` |
 | `notes` | optional, ≤1000 chars |
 | `createdAt`, `updatedAt` | ISO timestamps |
+| `completedAt` | ISO timestamp when moved to complete, empty otherwise |
+| `history` | JSON string of the last 30 update events (created/status/edit) |
 
 `Employee`: `id`, `name`, `active`.
 

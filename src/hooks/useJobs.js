@@ -1,9 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { DEFAULT_EMPLOYEES } from "../constants";
+import { DEFAULT_EMPLOYEES, STATUS } from "../constants";
 import { createRepository } from "../data/repository";
 import { applyOps } from "../data/ops";
-import { normalizeJob } from "../data/normalize";
+import { normalizeEmployee, normalizeJob } from "../data/normalize";
 import { readOutbox, writeOutbox } from "../data/outbox";
+import { appendHistory } from "../utils/history";
+import { findEmployeeByName } from "../utils/employees";
 
 const POLL_INTERVAL_MS = 20000;
 const RETRY_DELAY_MS = 5000;
@@ -249,6 +251,38 @@ export function useJobs() {
     [enqueue]
   );
 
+  /**
+   * Add an employee to the shared list (and the Google Sheets Employees tab).
+   * Names are matched case-insensitively, so typing an existing name reuses it
+   * and a previously deactivated person is reactivated instead of duplicated.
+   */
+  const saveEmployee = useCallback(
+    (input) => {
+      const employee = normalizeEmployee(input);
+      if (!employee) return null;
+
+      const existing = findEmployeeByName(stateRef.current.employees, employee.name);
+      if (existing) {
+        if (existing.active === false) {
+          const revived = { ...existing, active: true };
+          setEmployees((prev) =>
+            prev.map((item) => (item.id === revived.id ? revived : item))
+          );
+          enqueue({ type: "upsertEmployee", employee: revived });
+          return revived;
+        }
+        return existing;
+      }
+
+      setEmployees((prev) =>
+        prev.some((item) => item.id === employee.id) ? prev : [employee, ...prev]
+      );
+      enqueue({ type: "upsertEmployee", employee });
+      return employee;
+    },
+    [enqueue]
+  );
+
   const deleteJob = useCallback(
     (job) => {
       if (!job) return;
@@ -262,7 +296,19 @@ export function useJobs() {
     (jobId, status) => {
       const current = stateRef.current.jobs.find((item) => item.id === jobId);
       if (!current || current.status === status) return;
-      const updated = { ...current, status, updatedAt: new Date().toISOString() };
+      const now = new Date().toISOString();
+      const updated = {
+        ...current,
+        status,
+        completedAt: status === STATUS.COMPLETE ? current.completedAt || now : "",
+        history: appendHistory(current.history, {
+          at: now,
+          type: "status",
+          from: current.status,
+          to: status,
+        }),
+        updatedAt: now,
+      };
       setJobs((prev) => prev.map((item) => (item.id === jobId ? updated : item)));
       enqueue({ type: "upsertJob", job: updated });
     },
@@ -293,6 +339,7 @@ export function useJobs() {
     needsImport,
     importCandidateCount: importCandidateRef.current.jobs.length,
     saveJob,
+    saveEmployee,
     deleteJob,
     moveJob,
     importLocal,

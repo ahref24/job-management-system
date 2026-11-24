@@ -522,6 +522,22 @@ body {
   color: var(--danger);
 }
 
+.job-timestamps {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 8px;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text-faint);
+}
+
+.job-timestamps .completed-stamp {
+  color: #16a34a;
+  font-weight: 600;
+}
+
 .job-notes {
   display: flex;
   gap: 6px;
@@ -708,6 +724,54 @@ body {
   font-size: 12px;
   font-weight: 500;
   color: var(--danger);
+}
+
+.field-hint {
+  font-size: 11.5px;
+  line-height: 1.4;
+  color: var(--text-faint);
+}
+
+/* ===== Update history ===== */
+.job-history {
+  border-top: 1px dashed var(--surface-border);
+  padding-top: 12px;
+}
+
+.job-history h3 {
+  margin: 0 0 8px;
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+}
+
+.job-history ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 160px;
+  overflow-y: auto;
+}
+
+.job-history li {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  padding-left: 10px;
+  border-left: 2px solid var(--surface-border);
+  font-size: 12.5px;
+  color: var(--text-muted);
+}
+
+.job-history time {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-faint);
 }
 
 .modal-actions {

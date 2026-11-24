@@ -1,12 +1,14 @@
-import { useRef, useState } from "react";
-import { PRIORITY_OPTIONS, STATUS_OPTIONS } from "../constants";
-import { normalizeDueDate, uid } from "../utils/helpers";
+import { useMemo, useRef, useState } from "react";
+import { PRIORITY_OPTIONS, STATUS, STATUS_OPTIONS } from "../constants";
+import { formatDateTimeDisplay, normalizeDueDate, uid } from "../utils/helpers";
 import { useFocusTrap } from "../hooks/useFocusTrap";
+import { appendHistory, describeHistoryEntry, parseHistory } from "../utils/history";
+import { findEmployeeByName } from "../utils/employees";
 
 const EMPTY_FORM = {
   title: "",
   description: "",
-  employeeId: "",
+  employeeName: "",
   dueDate: "",
   priority: "medium",
   status: "todo",
@@ -15,13 +17,16 @@ const EMPTY_FORM = {
 
 const PRIORITY_KEYS = ["ArrowRight", "ArrowDown", "ArrowLeft", "ArrowUp"];
 
+const employeeNameFor = (employees, employeeId) =>
+  employees.find((employee) => employee.id === employeeId)?.name || "";
+
 export default function JobForm({ job, employees, onSave, onClose }) {
   const [form, setForm] = useState(() =>
     job
       ? {
           title: job.title,
           description: job.description || "",
-          employeeId: job.employeeId || "",
+          employeeName: employeeNameFor(employees, job.employeeId),
           dueDate: normalizeDueDate(job.dueDate),
           priority: job.priority || "medium",
           status: job.status || "todo",
@@ -29,6 +34,11 @@ export default function JobForm({ job, employees, onSave, onClose }) {
         }
       : { ...EMPTY_FORM }
   );
+
+  const historyEntries = useMemo(() => {
+    if (!job) return [];
+    return parseHistory(job.history).slice().reverse().slice(0, 6);
+  }, [job]);
 
   const [errors, setErrors] = useState({});
   const modalRef = useRef(null);
@@ -68,8 +78,8 @@ export default function JobForm({ job, employees, onSave, onClose }) {
     if (form.description.trim().length > 500) {
       nextErrors.description = "Description must be 500 characters or fewer.";
     }
-    if (!form.employeeId) {
-      nextErrors.employeeId = "Please assign the job to an employee.";
+    if (!form.employeeName.trim()) {
+      nextErrors.employeeName = "Please assign the job to an employee.";
     }
     if (form.dueDate.trim() && !normalizeDueDate(form.dueDate)) {
       nextErrors.dueDate = "Please provide a valid due date.";
@@ -90,19 +100,61 @@ export default function JobForm({ job, employees, onSave, onClose }) {
     if (Object.keys(nextErrors).length > 0) return;
 
     const now = new Date().toISOString();
-    onSave({
+    const employeeName = form.employeeName.trim();
+    const matchedEmployee = findEmployeeByName(employees, employeeName);
+    const employeeId = matchedEmployee ? matchedEmployee.id : "";
+
+    const nextJob = {
       ...(job || {}),
       id: job ? job.id : uid("job"),
       title: form.title.trim(),
       description: form.description.trim(),
-      employeeId: form.employeeId,
+      employeeId,
       dueDate: normalizeDueDate(form.dueDate),
       priority: form.priority,
       status: form.status,
       notes: form.notes.trim(),
       createdAt: job ? job.createdAt : now,
       updatedAt: now,
-    });
+    };
+
+    let history = job ? job.history || "" : "";
+    if (job) {
+      const changedFields = [];
+      if ((job.title || "") !== nextJob.title) changedFields.push("title");
+      if ((job.description || "") !== nextJob.description) changedFields.push("description");
+      if ((job.employeeId || "") !== nextJob.employeeId) changedFields.push("employeeId");
+      if (normalizeDueDate(job.dueDate) !== nextJob.dueDate) changedFields.push("dueDate");
+      if ((job.priority || "medium") !== nextJob.priority) changedFields.push("priority");
+      if ((job.notes || "") !== nextJob.notes) changedFields.push("notes");
+
+      if ((job.status || STATUS.TODO) !== form.status) {
+        history = appendHistory(history, {
+          at: now,
+          type: "status",
+          from: job.status,
+          to: form.status,
+        });
+      }
+      if (changedFields.length > 0) {
+        history = appendHistory(history, { at: now, type: "edit", fields: changedFields });
+      }
+    } else {
+      history = appendHistory("", { at: now, type: "created" });
+    }
+
+    nextJob.history = history;
+    nextJob.completedAt =
+      form.status === STATUS.COMPLETE
+        ? job && job.status === STATUS.COMPLETE
+          ? job.completedAt || now
+          : now
+        : "";
+
+    onSave(
+      nextJob,
+      matchedEmployee ? undefined : { newEmployeeName: employeeName }
+    );
     onClose();
   };
 
@@ -179,26 +231,34 @@ export default function JobForm({ job, employees, onSave, onClose }) {
 
           <div className="form-row">
             <div className="form-group">
-              <label htmlFor="employeeId">Assigned Employee *</label>
-              <select
-                id="employeeId"
-                name="employeeId"
-                value={form.employeeId}
+              <label htmlFor="employeeName">Assigned Employee *</label>
+              <input
+                id="employeeName"
+                name="employeeName"
+                type="text"
+                list="employee-options"
+                value={form.employeeName}
                 onChange={handleChange}
-                className={errors.employeeId ? "invalid" : ""}
-                aria-invalid={Boolean(errors.employeeId)}
-                aria-describedby={errors.employeeId ? "employeeId-error" : undefined}
-              >
-                <option value="">Select employee…</option>
+                placeholder="Select or type a name…"
+                autoComplete="off"
+                className={errors.employeeName ? "invalid" : ""}
+                aria-invalid={Boolean(errors.employeeName)}
+                aria-describedby={
+                  errors.employeeName ? "employeeName-error employeeName-hint" : "employeeName-hint"
+                }
+              />
+              <datalist id="employee-options">
                 {employees.map((employee) => (
-                  <option key={employee.id} value={employee.id}>
-                    {employee.name}
-                  </option>
+                  <option key={employee.id} value={employee.name} />
                 ))}
-              </select>
-              {errors.employeeId && (
-                <span className="field-error" id="employeeId-error">
-                  {errors.employeeId}
+              </datalist>
+              <span className="field-hint" id="employeeName-hint">
+                Pick someone from the list or type a new name — they are added to the
+                employee list automatically.
+              </span>
+              {errors.employeeName && (
+                <span className="field-error" id="employeeName-error">
+                  {errors.employeeName}
                 </span>
               )}
             </div>
@@ -296,6 +356,20 @@ export default function JobForm({ job, employees, onSave, onClose }) {
               </span>
             )}
           </div>
+
+          {job && historyEntries.length > 0 && (
+            <section className="job-history" aria-label="Update history">
+              <h3>Update history</h3>
+              <ul>
+                {historyEntries.map((entry, index) => (
+                  <li key={`${entry.at}-${index}`}>
+                    <time dateTime={entry.at}>{formatDateTimeDisplay(entry.at)}</time>
+                    <span>{describeHistoryEntry(entry)}</span>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          )}
 
           <footer className="modal-actions">
             <button type="button" className="btn btn-ghost" onClick={onClose}>

@@ -35,6 +35,26 @@ describe("normalizeJob", () => {
     expect(job.status).toBe(STATUS.TODO);
     expect(job.priority).toBe("medium");
   });
+
+  it("keeps update history and completion timestamps", () => {
+    const job = normalizeJob({
+      title: "Tracked",
+      status: STATUS.COMPLETE,
+      createdAt: "2026-01-01T00:00:00.000Z",
+      updatedAt: "2026-01-02T00:00:00.000Z",
+      history: JSON.stringify([
+        { at: "2026-01-02T00:00:00.000Z", type: "status", from: "todo", to: "complete" },
+      ]),
+    });
+
+    expect(job.completedAt).toBe("2026-01-02T00:00:00.000Z");
+    expect(JSON.parse(job.history)).toHaveLength(1);
+  });
+
+  it("discards malformed history instead of breaking the job", () => {
+    const job = normalizeJob({ title: "Broken history", history: "{not json" });
+    expect(job.history).toBe("");
+  });
 });
 
 describe("normalizeJobs", () => {

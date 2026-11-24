@@ -7,6 +7,7 @@
  * Setup:
  *   1. Open the spreadsheet you want to use.
  *   2. Extensions > Apps Script, paste this file as Code.gs.
+ *      (If you use a standalone script instead, set SPREADSHEET_ID below.)
  *   3. Replace TOKEN with a long random string.
  *   4. Run setup() once and accept the permission prompt.
  *   5. Deploy > New deployment > Web app.
@@ -19,7 +20,11 @@
  */
 
 const TOKEN = "replace-with-a-long-random-string";
-const SPREADSHEET_ID = ""; // Leave blank when the script is bound to the sheet.
+
+// Leave blank when the script is bound to the sheet (Extensions > Apps Script).
+// For a standalone script, paste the ID from the sheet URL:
+// https://docs.google.com/spreadsheets/d/THIS_PART/edit
+const SPREADSHEET_ID = "";
 
 const SHEETS = {
   jobs: {
@@ -36,8 +41,10 @@ const SHEETS = {
       "createdAt",
       "updatedAt",
       "deletedAt",
+      "completedAt",
+      "history",
     ],
-    textColumns: ["dueDate", "createdAt", "updatedAt", "deletedAt"],
+    textColumns: ["dueDate", "createdAt", "updatedAt", "deletedAt", "completedAt"],
   },
   employees: {
     name: "Employees",
@@ -49,40 +56,67 @@ const SHEETS = {
 /** Run once from the Apps Script editor to create sheets, headers and formats. */
 function setup() {
   Object.keys(SHEETS).forEach(function (key) {
-    const sheet = sheetFor_(key);
-    const headers = SHEETS[key].headers;
-    SHEETS[key].textColumns.forEach(function (header) {
-      const index = headers.indexOf(header);
-      if (index === -1) return;
-      sheet.getRange(1, index + 1, sheet.getMaxRows(), 1).setNumberFormat("@");
-    });
-    sheet.setFrozenRows(1);
+    sheetFor_(key);
   });
   return "JobBoard sheets are ready.";
 }
 
+/** Apply plain-text number formats to date/id columns. */
+function formatTextColumns_(sheet, config, headers, startColumn) {
+  headers.forEach(function (header, offset) {
+    if (config.textColumns.indexOf(header) === -1) return;
+    sheet.getRange(1, startColumn + offset, sheet.getMaxRows(), 1).setNumberFormat("@");
+  });
+}
+
 function book_() {
-  return SPREADSHEET_ID
-    ? SpreadsheetApp.openById(SPREADSHEET_ID)
-    : SpreadsheetApp.getActiveSpreadsheet();
+  if (SPREADSHEET_ID) return SpreadsheetApp.openById(SPREADSHEET_ID);
+
+  const active = SpreadsheetApp.getActiveSpreadsheet();
+  if (!active) {
+    throw new Error(
+      "No spreadsheet found. Open the spreadsheet, choose Extensions > Apps Script, " +
+        "and run setup() there. For a standalone script, set SPREADSHEET_ID at the " +
+        "top of Code.gs to the ID from the sheet URL."
+    );
+  }
+  return active;
 }
 
 function sheetFor_(key) {
   const config = SHEETS[key];
   const spreadsheet = book_();
   let sheet = spreadsheet.getSheetByName(config.name);
+
   if (!sheet) {
     sheet = spreadsheet.insertSheet(config.name);
-    sheet.appendRow(config.headers);
+    sheet.getRange(1, 1, 1, config.headers.length).setValues([config.headers]);
     sheet.setFrozenRows(1);
-    config.textColumns.forEach(function (header) {
-      const index = config.headers.indexOf(header);
-      if (index !== -1) sheet.getRange(1, index + 1, sheet.getMaxRows(), 1).setNumberFormat("@");
-    });
-  } else if (sheet.getLastRow() === 0) {
-    sheet.appendRow(config.headers);
-    sheet.setFrozenRows(1);
+    formatTextColumns_(sheet, config, config.headers, 1);
+    return sheet;
   }
+
+  if (sheet.getLastRow() === 0) {
+    sheet.getRange(1, 1, 1, config.headers.length).setValues([config.headers]);
+    sheet.setFrozenRows(1);
+    formatTextColumns_(sheet, config, config.headers, 1);
+    return sheet;
+  }
+
+  // Upgrade sheets created by older versions: append any headers that are
+  // missing (e.g. completedAt/history) without touching existing columns.
+  const lastColumn = sheet.getLastColumn();
+  const existing =
+    lastColumn > 0 ? sheet.getRange(1, 1, 1, lastColumn).getValues()[0].map(String) : [];
+  const missing = config.headers.filter(function (header) {
+    return existing.indexOf(header) === -1;
+  });
+  if (missing.length > 0) {
+    const startColumn = lastColumn + 1;
+    sheet.getRange(1, startColumn, 1, missing.length).setValues([missing]);
+    formatTextColumns_(sheet, config, missing, startColumn);
+  }
+
   return sheet;
 }
 

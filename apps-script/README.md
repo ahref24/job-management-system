@@ -13,6 +13,11 @@ web app. No backend server, API key, or OAuth consent screen is required.
 1. In the spreadsheet: **Extensions → Apps Script**.
 2. Delete the placeholder `myFunction` and paste the contents of
    [`Code.gs`](./Code.gs).
+
+   > This must be a **container-bound** script opened from the spreadsheet. A
+   > standalone script at <https://script.google.com> cannot see the sheet
+   > unless you set `SPREADSHEET_ID` in `Code.gs`.
+
 3. Replace `TOKEN` with a long random string. Generate one with:
 
    ```bash
@@ -22,6 +27,11 @@ web app. No backend server, API key, or OAuth consent screen is required.
 4. Leave `SPREADSHEET_ID` empty (the script is bound to this spreadsheet).
 5. Save, then run `setup` once from the editor and accept the permission prompt.
    You should see `Jobs` and `Employees` tabs with header rows.
+
+> Upgrading an existing sheet? You do **not** need to wipe it. On the next run,
+> the script appends any new job columns (`completedAt`, `history`) to the right
+> of the existing headers. Employee names typed into the job form are written to
+> the `Employees` tab automatically.
 
 ## 3. Deploy the web app
 
@@ -77,6 +87,10 @@ the bundle.
   deployment, set **Who has access: Anyone**, and deploy again.
 - `{"ok":false,"error":"unauthorized"}` means `SHEETS_TOKEN` does not match
   `TOKEN` in `Code.gs`.
+- `TypeError: Cannot read properties of null (reading 'getSheetByName')` means
+  the script is not bound to a spreadsheet and `SPREADSHEET_ID` is empty. Open
+  the sheet and use **Extensions → Apps Script**, or paste the spreadsheet ID
+  from the sheet URL into `SPREADSHEET_ID`.
 
 ## 5. Migrating existing local data
 

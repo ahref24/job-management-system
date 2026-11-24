@@ -27,6 +27,7 @@ export default function App() {
     needsImport,
     importCandidateCount,
     saveJob,
+    saveEmployee,
     deleteJob,
     moveJob,
     importLocal,
@@ -45,6 +46,18 @@ export default function App() {
     () => employees.filter((employee) => employee.active !== false),
     [employees]
   );
+
+  // Keep the currently assigned employee selectable even if they are inactive.
+  const formEmployees = useMemo(() => {
+    const list = [...activeEmployees];
+    if (editingJob) {
+      const assigned = employees.find((employee) => employee.id === editingJob.employeeId);
+      if (assigned && !list.some((employee) => employee.id === assigned.id)) {
+        list.push(assigned);
+      }
+    }
+    return list;
+  }, [activeEmployees, employees, editingJob]);
 
   const visibleJobs = useMemo(() => {
     const query = searchQuery.trim().toLowerCase();
@@ -74,6 +87,20 @@ export default function App() {
   const openEditForm = (job) => {
     setEditingJob(job);
     setFormOpen(true);
+  };
+
+  /**
+   * A job form can submit an employee name that is not on the list yet. Create
+   * (or reuse) that employee first, then attach the job to their id so both
+   * rows land in the same Google Sheets write queue.
+   */
+  const handleSaveJob = (job, options = {}) => {
+    if (options.newEmployeeName) {
+      const employee = saveEmployee({ name: options.newEmployeeName });
+      saveJob(employee ? { ...job, employeeId: employee.id } : job);
+      return;
+    }
+    saveJob(job);
   };
 
   const handleDelete = () => {
@@ -151,8 +178,8 @@ export default function App() {
       {formOpen && (
         <JobForm
           job={editingJob}
-          employees={activeEmployees}
-          onSave={saveJob}
+          employees={formEmployees}
+          onSave={handleSaveJob}
           onClose={() => {
             setFormOpen(false);
             setEditingJob(null);
