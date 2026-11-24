@@ -22,8 +22,8 @@ export default function FilterBar({
           type="search"
           value={searchQuery}
           onChange={(event) => onSearchQuery(event.target.value)}
-          placeholder="Search jobs…"
-          aria-label="Search jobs"
+          placeholder="Search tasks…"
+          aria-label="Search tasks"
         />
       </div>
 
